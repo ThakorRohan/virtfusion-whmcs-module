@@ -53,12 +53,14 @@ require dirname(__DIR__, 3) . '/init.php';
  */
 
 use WHMCS\Database\Capsule;
+use WHMCS\Module\Server\VirtFusionDirect\ConfigureService;
 use WHMCS\Module\Server\VirtFusionDirect\Log;
 use WHMCS\Module\Server\VirtFusionDirect\Module;
 use WHMCS\Module\Server\VirtFusionDirect\PowerDns\Config as PowerDnsConfig;
 use WHMCS\Module\Server\VirtFusionDirect\PowerDns\IpUtil;
 use WHMCS\Module\Server\VirtFusionDirect\PowerDns\PtrManager;
 use WHMCS\Module\Server\VirtFusionDirect\ServerResource;
+use WHMCS\User\User;
 
 $vf = new Module;
 
@@ -215,13 +217,14 @@ try {
 
             $osId = isset($_POST['osId']) ? (int) $_POST['osId'] : 0;
             $hostname = isset($_POST['hostname']) ? preg_replace('/[^a-zA-Z0-9.\-]/', '', $_POST['hostname']) : null;
+            $sshKey = isset($_POST['sshKey']) ? trim((string) $_POST['sshKey']) : null;
 
             if ($osId <= 0) {
                 $vf->output(['success' => false, 'errors' => 'Invalid operating system ID'], true, true, 400);
                 break;
             }
 
-            $result = $vf->rebuildServer($serviceID, $osId, $hostname);
+            $result = $vf->rebuildServer($serviceID, $osId, $hostname, $sshKey);
 
             if ($result) {
                 $vf->output(['success' => true, 'data' => ['message' => 'Server rebuild initiated successfully']], true, true, 200);
@@ -229,6 +232,45 @@ try {
             }
 
             $vf->output(['success' => false, 'errors' => 'Server rebuild failed. The server may be locked or unavailable.'], true, true, 500);
+            break;
+
+            /**
+             * List the current customer's existing VirtFusion SSH keys (read-only)
+             * so the rebuild panel can offer them. Keys are scoped to the
+             * authenticated owner — the VF user is derived from $clientId, never
+             * from request input — so there is no cross-customer exposure.
+             */
+        case 'sshKeys':
+
+            $serviceID = $vf->validateServiceID(true);
+
+            $clientId = $vf->validateUserOwnsService($serviceID);
+            if (! $clientId) {
+                $vf->output(['success' => false, 'errors' => 'service <> owner mismatch'], true, true, 403);
+                break;
+            }
+
+            $vf->requireProvisionedService($serviceID);
+
+            try {
+                $cs = new ConfigureService;
+                $user = User::find($clientId);
+                $sshKeysData = $cs->getUserSshKeys($user);
+                $keys = [];
+                if ($sshKeysData && isset($sshKeysData['data'])) {
+                    $keys = array_values(array_filter(array_map(function ($k) {
+                        if (empty($k['id']) || empty($k['name'])) {
+                            return null;
+                        }
+
+                        return ['id' => (int) $k['id'], 'name' => (string) $k['name']];
+                    }, $sshKeysData['data'])));
+                }
+                $vf->output(['success' => true, 'data' => $keys], true, true, 200);
+            } catch (Throwable $e) {
+                Log::insert('sshKeys', [], $e->getMessage());
+                $vf->output(['success' => true, 'data' => []], true, true, 200);
+            }
             break;
 
             /**

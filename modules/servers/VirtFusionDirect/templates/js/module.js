@@ -683,6 +683,63 @@ function vfLoadOsTemplates(serviceId, systemUrl) {
     });
 }
 
+// In-page confirmation modal (replaces native confirm()). All caller-supplied
+// strings — title, message, and BOTH button labels — are escaped via jQuery
+// .text() before being inserted as HTML, so there is no injection surface even
+// if a caller ever passes dynamic text. options.onOk runs only on confirm.
+function vfConfirm(options) {
+    options = options || {};
+    var id = "vf-confirm-modal-" + Date.now();
+    var dangerClass = options.danger ? "vf-confirm-btn-danger" : "vf-confirm-btn-primary";
+    var esc = function (s) { return $("<span>").text(s == null ? "" : String(s)).html(); };
+    var html = '<div class="vf-confirm-backdrop" id="' + id + '">' +
+        '<div class="vf-confirm-dialog" role="dialog" aria-modal="true">' +
+            '<div class="vf-confirm-icon ' + (options.danger ? "vf-confirm-icon-danger" : "") + '">' +
+                '<svg width="22" height="22" viewBox="0 0 24 24" fill="none">' +
+                    '<path d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"' +
+                    ' stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>' +
+                "</svg>" +
+            "</div>" +
+            '<div class="vf-confirm-body">' +
+                '<div class="vf-confirm-title">' + esc(options.title || "Are you sure?") + "</div>" +
+                '<div class="vf-confirm-msg">' + esc(options.message || "") + "</div>" +
+            "</div>" +
+            '<div class="vf-confirm-actions">' +
+                '<button class="vf-confirm-btn vf-confirm-btn-cancel" id="' + id + '-cancel">' + esc(options.cancel || "Cancel") + "</button>" +
+                '<button class="vf-confirm-btn ' + dangerClass + '" id="' + id + '-ok">' + esc(options.ok || "Confirm") + "</button>" +
+            "</div>" +
+        "</div>" +
+    "</div>";
+    var $modal = $(html);
+    $("body").append($modal);
+    requestAnimationFrame(function () { $modal.addClass("vf-confirm-visible"); });
+    function close() { $modal.removeClass("vf-confirm-visible"); setTimeout(function () { $modal.remove(); }, 200); }
+    $("#" + id + "-cancel").on("click", function () { close(); });
+    $("#" + id + "-ok").on("click", function () { close(); if (typeof options.onOk === "function") { options.onOk(); } });
+    $modal.on("click", function (e) { if ($(e.target).is($modal)) { close(); } });
+    setTimeout(function () { $("#" + id + "-ok").focus(); }, 50);
+}
+
+// Populate the rebuild panel's SSH-key dropdown with the customer's existing
+// VirtFusion keys (read-only client.php?action=sshKeys). Names are inserted via
+// .text() so a malicious key name can never inject markup.
+function vfLoadRebuildSshKeys(serviceId, systemUrl) {
+    var $sel = $("#vf-rebuild-ssh");
+    if (!$sel.length) { return; }
+    $.ajax({
+        type: "GET",
+        dataType: "json",
+        url: vfUrl(systemUrl, serviceId, "sshKeys")
+    }).done(function (response) {
+        if (response && response.success && Array.isArray(response.data)) {
+            response.data.forEach(function (k) {
+                if (!k || !k.id) { return; }
+                $sel.append($("<option>").val(k.id).text(k.name || ("Key #" + k.id)));
+            });
+        }
+    });
+}
+
 function vfRebuildServer(serviceId, systemUrl) {
     var osId = $("#vf-rebuild-os").val();
     var alertDiv = $("#vf-rebuild-alert");
@@ -692,36 +749,44 @@ function vfRebuildServer(serviceId, systemUrl) {
         return;
     }
 
-    if (!confirm("Are you sure you want to rebuild this server? ALL DATA WILL BE ERASED. This action cannot be undone.")) {
-        return;
-    }
+    // Prefer a freshly pasted public key; otherwise an existing key ID from the
+    // dropdown. Empty means "no key" — the server treats it as optional.
+    var sshKey = ($("#vf-rebuild-ssh-paste").val() || "").trim() || $("#vf-rebuild-ssh").val() || "";
 
-    $("#vf-rebuild-button").prop("disabled", true);
-    $("#vf-rebuild-spinner").show();
-    alertDiv.hide();
-    vfShowProgress("Rebuilding server...");
+    vfConfirm({
+        danger: true,
+        title: "Rebuild server?",
+        message: "ALL DATA WILL BE ERASED and the operating system reinstalled. This action cannot be undone.",
+        ok: "Rebuild Server",
+        onOk: function () {
+            $("#vf-rebuild-button").prop("disabled", true);
+            $("#vf-rebuild-spinner").show();
+            alertDiv.hide();
+            vfShowProgress("Rebuilding server...");
 
-    $.ajax({
-        type: "POST",
-        dataType: "json",
-        url: vfUrl(systemUrl, serviceId, "rebuild"),
-        data: { osId: osId }
-    }).done(function (response) {
-        if (response.success) {
-            vfShowAlert(alertDiv, "success",response.data.message || "Server rebuild initiated. You will receive an email when the process is complete.");
-        } else {
-            vfShowAlert(alertDiv, "danger","Rebuild failed. Please try again.");
+            $.ajax({
+                type: "POST",
+                dataType: "json",
+                url: vfUrl(systemUrl, serviceId, "rebuild"),
+                data: { osId: osId, sshKey: sshKey }
+            }).done(function (response) {
+                if (response.success) {
+                    vfShowAlert(alertDiv, "success", response.data.message || "Server rebuild initiated. You will receive an email when the process is complete.");
+                } else {
+                    vfShowAlert(alertDiv, "danger", "Rebuild failed. Please try again.");
+                }
+                alertDiv.show();
+            }).fail(function () {
+                vfShowAlert(alertDiv, "danger", "An error occurred. Please try again.");
+            }).always(function () {
+                vfHideProgress();
+                $("#vf-rebuild-spinner").hide();
+                // Cooldown: keep button disabled for 30 seconds after rebuild
+                setTimeout(function () {
+                    $("#vf-rebuild-button").prop("disabled", false);
+                }, 30000);
+            });
         }
-        alertDiv.show();
-    }).fail(function () {
-        vfShowAlert(alertDiv, "danger","An error occurred. Please try again.");
-    }).always(function () {
-        vfHideProgress();
-        $("#vf-rebuild-spinner").hide();
-        // Cooldown: keep button disabled for 30 seconds after rebuild
-        setTimeout(function () {
-            $("#vf-rebuild-button").prop("disabled", false);
-        }, 30000);
     });
 }
 
@@ -905,43 +970,47 @@ function vfAddCredit(serviceId, systemUrl) {
 // =========================================================================
 
 function vfResetServerPassword(serviceId, systemUrl) {
-    if (!confirm("Are you sure you want to reset the server root password? This will change the password immediately.")) {
-        return;
-    }
+    vfConfirm({
+        danger: true,
+        title: "Reset root password?",
+        message: "This will change the server root password immediately.",
+        ok: "Reset Password",
+        onOk: function () {
+            var btn = $("#vf-server-password-btn");
+            var spinner = $("#vf-server-password-spinner");
+            var alertDiv = $("#vf-server-password-alert");
 
-    var btn = $("#vf-server-password-btn");
-    var spinner = $("#vf-server-password-spinner");
-    var alertDiv = $("#vf-server-password-alert");
+            btn.prop("disabled", true);
+            spinner.show();
+            alertDiv.hide();
 
-    btn.prop("disabled", true);
-    spinner.show();
-    alertDiv.hide();
-
-    $.ajax({
-        type: "POST",
-        dataType: "json",
-        url: vfUrl(systemUrl, serviceId, "resetServerPassword")
-    }).done(function (response) {
-        if (response.success && response.data) {
-            var data = response.data.data || response.data;
-            var password = data.password || data.newPassword || "";
-            if (password) {
-                navigator.clipboard.writeText(password).then(function () {
-                    vfShowAlert(alertDiv, "success","New password copied to clipboard.");
-                }).catch(function () {
-                    vfShowAlert(alertDiv, "warning","Password reset successful. Unable to copy to clipboard automatically.");
-                });
-            } else {
-                vfShowAlert(alertDiv, "success","Password reset initiated. Check your email for the new credentials.");
-            }
-        } else {
-            vfShowAlert(alertDiv, "danger","Password reset failed. Please try again.");
+            $.ajax({
+                type: "POST",
+                dataType: "json",
+                url: vfUrl(systemUrl, serviceId, "resetServerPassword")
+            }).done(function (response) {
+                if (response.success && response.data) {
+                    var data = response.data.data || response.data;
+                    var password = data.password || data.newPassword || "";
+                    if (password) {
+                        navigator.clipboard.writeText(password).then(function () {
+                            vfShowAlert(alertDiv, "success","New password copied to clipboard.");
+                        }).catch(function () {
+                            vfShowAlert(alertDiv, "warning","Password reset successful. Unable to copy to clipboard automatically.");
+                        });
+                    } else {
+                        vfShowAlert(alertDiv, "success","Password reset initiated. Check your email for the new credentials.");
+                    }
+                } else {
+                    vfShowAlert(alertDiv, "danger","Password reset failed. Please try again.");
+                }
+            }).fail(function () {
+                vfShowAlert(alertDiv, "danger","An error occurred. Please try again.");
+            }).always(function () {
+                spinner.hide();
+                btn.prop("disabled", false);
+            });
         }
-    }).fail(function () {
-        vfShowAlert(alertDiv, "danger","An error occurred. Please try again.");
-    }).always(function () {
-        spinner.hide();
-        btn.prop("disabled", false);
     });
 }
 

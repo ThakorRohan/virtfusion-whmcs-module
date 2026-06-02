@@ -379,7 +379,7 @@ class Module
      * @param  string|null  $hostname  Optional new hostname
      * @return object|false
      */
-    public function rebuildServer($serviceID, $osId, $hostname = null)
+    public function rebuildServer($serviceID, $osId, $hostname = null, $sshKey = null)
     {
         try {
             $osId = (int) $osId;
@@ -395,6 +395,33 @@ class Module
             $buildData = ['operatingSystemId' => $osId, 'email' => true];
             if ($hostname !== null && $hostname !== '') {
                 $buildData['hostname'] = $hostname;
+            }
+
+            // Optional SSH key: a numeric value is an existing VirtFusion key ID;
+            // a value with a recognised public-key prefix is a raw key that we
+            // create under the service owner's VF user first. The VF user is
+            // resolved from the service's WHMCS client — never from client input —
+            // so a customer can only attach a key to their own account. Failures
+            // are non-fatal: the rebuild proceeds without a key rather than aborting.
+            if (! empty($sshKey)) {
+                $sshKeyId = null;
+                if (is_numeric($sshKey)) {
+                    $sshKeyId = (int) $sshKey;
+                } elseif (preg_match('/^(ssh-|ecdsa-sha2-|sk-ssh-|sk-ecdsa-)/', $sshKey)) {
+                    try {
+                        $cs = new ConfigureService;
+                        $whmcsClientId = (int) $ctx['whmcsService']->userid;
+                        $vfUser = $cs->getVFUserDetails($whmcsClientId);
+                        if ($vfUser && isset($vfUser['id'])) {
+                            $sshKeyId = $cs->createUserSshKey((int) $vfUser['id'], $sshKey);
+                        }
+                    } catch (\Throwable $e) {
+                        Log::insert(__FUNCTION__ . ':sshKey', [], $e->getMessage());
+                    }
+                }
+                if ($sshKeyId) {
+                    $buildData['sshKeys'] = [$sshKeyId];
+                }
             }
 
             $ctx['request']->addOption(CURLOPT_POSTFIELDS, json_encode($buildData));

@@ -333,11 +333,18 @@
         </div>
         <div id="vf-os-gallery" class="mb-3" style="display:none;"></div>
         <div id="vf-os-details" class="mb-3" style="display:none;"></div>
+        <div class="form-group mb-3">
+            <label>SSH Key <span class="text-muted">(optional)</span></label>
+            <select id="vf-rebuild-ssh" class="form-control mb-2">
+                <option value="">No SSH key</option>
+            </select>
+            <textarea id="vf-rebuild-ssh-paste" class="form-control" rows="2" placeholder="…or paste a new public key (ssh-ed25519, ssh-rsa, ecdsa-sha2-…)"></textarea>
+        </div>
         <button id="vf-rebuild-button" onclick="vfRebuildServer('{$serviceid}','{$systemURL}')" type="button" class="btn btn-danger text-uppercase d-flex align-items-center">
             <span id="vf-rebuild-spinner" class="spinner-border spinner-border-sm vf-spinner-margin" style="display:none;"></span>
             Rebuild Server
         </button>
-        <script>vfLoadOsTemplates('{$serviceid}', '{$systemURL}');</script>
+        <script>vfLoadOsTemplates('{$serviceid}', '{$systemURL}'); vfLoadRebuildSshKeys('{$serviceid}', '{$systemURL}');</script>
     </div>
 </div>
 
