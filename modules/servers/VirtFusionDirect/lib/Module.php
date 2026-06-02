@@ -789,12 +789,20 @@ class Module
                 return false;
             }
 
-            $ctx['request']->addOption(CURLOPT_POSTFIELDS, json_encode([$resource => $value]));
+            // The /modify/{resource} endpoints name their body field differently from our
+            // internal resource key: cpuCores is sent as "cores" (memory/traffic match 1:1).
+            // Sending the wrong field name omits the required property and the change is rejected.
+            $fieldMap = ['memory' => 'memory', 'cpuCores' => 'cores', 'traffic' => 'traffic'];
+            $field = $fieldMap[$resource];
+
+            $ctx['request']->addOption(CURLOPT_POSTFIELDS, json_encode([$field => $value]));
             $data = $ctx['request']->put($ctx['cp']['url'] . '/servers/' . $ctx['serverId'] . '/modify/' . $resource);
             Log::insert(__FUNCTION__ . ':' . $resource, $ctx['request']->getRequestInfo(), $data);
 
-            $httpCode = $ctx['request']->getRequestInfo('http_code');
-            if ($httpCode == 200 || $httpCode == 204) {
+            // VF v7 returns 201 (Created) on a successful modify; older builds returned 200/204.
+            // Accept all three so we cover the version range (mirrors the rename-endpoint fix).
+            $httpCode = (int) $ctx['request']->getRequestInfo('http_code');
+            if ($httpCode == 200 || $httpCode == 201 || $httpCode == 204) {
                 return json_decode($data) ?: (object) ['success' => true];
             }
 
