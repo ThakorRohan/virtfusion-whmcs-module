@@ -2,6 +2,22 @@
 
 All notable changes to the VirtFusion Direct Provisioning Module for WHMCS.
 
+## [1.5.1] - 2026-06-02
+
+> **Tested against:** WHMCS 9.0.3 and VirtFusion v7.0.0 Build 9.
+
+### Bug Fixes
+
+- **Critical: package upgrades/downgrades reported "Update package request failed. VirtFusion API returned HTTP 200" even though the change succeeded.** `ChangePackage` issues `PUT /servers/{id}/package/{packageId}`, and VirtFusion v7 answers a successful change with **HTTP 200** (carrying an `info[]` body describing what was/wasn't synced from the new package) — but the success whitelist only accepted **204**, so every real package change fell through to the default branch and surfaced a failure to WHMCS. Because that branch returns early, the follow-up Memory/CPU/Bandwidth tuning never ran either, and WHMCS recorded a failure for an operation VirtFusion had actually applied (state drift). Fixed by accepting 200 (and keeping 204 for older builds); the returned `info[]` array is now logged so an operator can see when the panel skipped part of a change.
+
+- **Per-resource tuning during a package change silently failed on VirtFusion v7.** `modifyResource()` sent the CPU value under the field name `cpuCores`, but the `/servers/{id}/modify/cpuCores` endpoint requires the field `cores` — the request omitted the required property and was rejected by the API. It also only accepted HTTP 200/204 as success, while v7 returns **201 Created** on every `/modify/*` call (the same version shift already handled for the rename endpoint in 1.5.0). Both are fixed: CPU is now sent as `cores`, and 201 is added to the success whitelist for memory, CPU, and traffic. These failures had been masked by the HTTP 200 bug above (which returned before the tuning loop) and were swallowed silently — the loop now logs any `modifyResource()` failure instead of discarding it.
+
+> **Disk-downgrade safety (unchanged, confirmed):** the module cannot shrink a primary disk and never could. It sends no disk flag on the package change, `modifyResource()` excludes storage entirely, no disk-modify endpoint exists, and VirtFusion itself refuses to lower a primary disk (_"primary disk not updated. It either matches or is lower than the current value"_). A downgrade leaves the disk at its larger size — there is no data-loss path.
+
+### Documentation
+
+- Vendored the VirtFusion v7 OpenAPI spec at `docs/openapi.yaml` for offline API reference when auditing endpoint behavior.
+
 ## [1.5.0] - 2026-04-28
 
 > **Tested against:** WHMCS 9.0.3 and VirtFusion v7.0.0 Build 9.
