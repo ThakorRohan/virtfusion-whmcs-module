@@ -562,12 +562,27 @@ function vfServerData(serviceId, systemUrl) {
             $("#vf-resources-panel").show();
 
             // Check for active queue tasks
-            if (data.tasks && data.tasks.active && data.tasks.actions && data.tasks.actions.pending && data.tasks.actions.pending.length > 0) {
-                var pendingTask = data.tasks.actions.pending[0];
-                var qid = typeof pendingTask === 'object' ? (pendingTask.id || pendingTask.queue_id || pendingTask.queueId) : pendingTask;
-                if (qid) {
-                    vfShowProgress(qid, serviceId, systemUrl, "Processing...");
+            var qid = null;
+            if (data.tasks && data.tasks.active && data.tasks.actions) {
+                for (var key in data.tasks.actions) {
+                    var actArray = data.tasks.actions[key];
+                    if (Array.isArray(actArray) && actArray.length > 0) {
+                        var task = actArray[0];
+                        qid = typeof task === 'object' ? (task.id || task.queue_id || task.queueId) : task;
+                        if (qid) break;
+                    }
                 }
+            }
+
+            if (qid) {
+                vfShowProgress(qid, serviceId, systemUrl, "Processing...");
+            } else if (status === "building" || status === "queued") {
+                // If the server status says it's building/queued but there's no explicit queue ID in pending tasks...
+                // Show the "Processing..." state indeterminate bar
+                vfShowProgress(null, serviceId, systemUrl, "Processing...");
+            } else {
+                // Not building, no task pending
+                vfHideProgress();
             }
 
             // Re-apply mask state to the IP cells we just (re)rendered.
