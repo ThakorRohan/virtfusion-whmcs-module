@@ -274,8 +274,18 @@ class ModuleFunctions extends Module
 
                 Log::insert(__FUNCTION__, $request->getRequestInfo(), $data);
 
-                switch ($request->getRequestInfo('http_code')) {
+                switch ((int) $request->getRequestInfo('http_code')) {
 
+                    case 200:
+                        // VirtFusion v7 returns 200 (with an {info:[...]} body) on a package change;
+                        // older builds returned 204. The info array reports what was/wasn't synced
+                        // from the new package — e.g. "primary disk not updated. It either matches or
+                        // is lower than the current value" (the panel never shrinks a disk). Log it so
+                        // an operator can see when a requested change was skipped.
+                        if (isset($data->info) && is_array($data->info)) {
+                            Log::insert(__FUNCTION__ . ':info', [], $data->info);
+                        }
+                        break;
                     case 204:
                         break;
                     case 404:
@@ -310,7 +320,11 @@ class ModuleFunctions extends Module
                             if ($resource === 'memory' && $value < 1024) {
                                 $value = $value * 1024;
                             }
-                            $this->modifyResource($params['serviceid'], $resource, $value);
+                            if ($this->modifyResource($params['serviceid'], $resource, $value) === false) {
+                                // A single resource tweak failing shouldn't fail the whole package
+                                // change, but the failure must not be silent — log it for the operator.
+                                Log::insert(__FUNCTION__ . ':modifyFailed', ['resource' => $resource, 'value' => $value], 'modifyResource returned false');
+                            }
                         }
                     }
                 }
