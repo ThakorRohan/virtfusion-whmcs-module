@@ -331,6 +331,7 @@ var _vfQueueTimer = null;
 
 function vfShowProgress(queueId, serviceId, systemUrl, fallbackLabel) {
     $("#vf-action-progress").show();
+    vfApplyServerStateGating(true, "processing");
 
     if (!queueId) {
         $("#vf-action-progress-text").text(fallbackLabel || "Processing...");
