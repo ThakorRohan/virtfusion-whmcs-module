@@ -79,7 +79,7 @@ class Cache
             $redis->connect(
                 defined('VFD_REDIS_HOST') ? VFD_REDIS_HOST : '127.0.0.1',
                 defined('VFD_REDIS_PORT') ? (int) VFD_REDIS_PORT : 6379,
-                1.0
+                1.0,
             );
             self::$redis = $redis;
             self::$redisAvailable = true;

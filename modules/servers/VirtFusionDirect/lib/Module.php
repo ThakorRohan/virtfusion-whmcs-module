@@ -398,8 +398,12 @@ class Module
                 $buildData['hostname'] = $hostname;
             }
 
-            // Handle SSH key — numeric = existing key ID, string starting
-            // with "ssh-" = raw public key that must be created first.
+            // Optional SSH key: a numeric value is an existing VirtFusion key ID;
+            // a value with a recognised public-key prefix is a raw key that we
+            // create under the service owner's VF user first. The VF user is
+            // resolved from the service's WHMCS client — never from client input —
+            // so a customer can only attach a key to their own account. Failures
+            // are non-fatal: the rebuild proceeds without a key rather than aborting.
             if (! empty($sshKey)) {
                 $sshKeyId = null;
                 if (is_numeric($sshKey)) {
@@ -407,7 +411,6 @@ class Module
                 } elseif (preg_match('/^(ssh-|ecdsa-sha2-|sk-ssh-|sk-ecdsa-)/', $sshKey)) {
                     try {
                         $cs = new ConfigureService;
-                        // Look up VF user ID from the service's WHMCS client
                         $whmcsClientId = (int) $ctx['whmcsService']->userid;
                         $vfUser = $cs->getVFUserDetails($whmcsClientId);
                         if ($vfUser && isset($vfUser['id'])) {
@@ -758,6 +761,7 @@ class Module
             // Use 'action' => 'enable'/'disable' as required by the VirtFusion API
             $action = $enabled ? 'enable' : 'disable';
             $ctx['request']->addOption(CURLOPT_POSTFIELDS, json_encode(['action' => $action]));
+
             $data = $ctx['request']->post($ctx['cp']['url'] . '/servers/' . $ctx['serverId'] . '/vnc');
             Log::insert(__FUNCTION__, $ctx['request']->getRequestInfo(), $data);
 
@@ -813,12 +817,20 @@ class Module
                 return false;
             }
 
-            $ctx['request']->addOption(CURLOPT_POSTFIELDS, json_encode([$resource => $value]));
+            // The /modify/{resource} endpoints name their body field differently from our
+            // internal resource key: cpuCores is sent as "cores" (memory/traffic match 1:1).
+            // Sending the wrong field name omits the required property and the change is rejected.
+            $fieldMap = ['memory' => 'memory', 'cpuCores' => 'cores', 'traffic' => 'traffic'];
+            $field = $fieldMap[$resource];
+
+            $ctx['request']->addOption(CURLOPT_POSTFIELDS, json_encode([$field => $value]));
             $data = $ctx['request']->put($ctx['cp']['url'] . '/servers/' . $ctx['serverId'] . '/modify/' . $resource);
             Log::insert(__FUNCTION__ . ':' . $resource, $ctx['request']->getRequestInfo(), $data);
 
-            $httpCode = $ctx['request']->getRequestInfo('http_code');
-            if ($httpCode == 200 || $httpCode == 204) {
+            // VF v7 returns 201 (Created) on a successful modify; older builds returned 200/204.
+            // Accept all three so we cover the version range (mirrors the rename-endpoint fix).
+            $httpCode = (int) $ctx['request']->getRequestInfo('http_code');
+            if ($httpCode == 200 || $httpCode == 201 || $httpCode == 204) {
                 return json_decode($data) ?: (object) ['success' => true];
             }
 
@@ -1602,6 +1614,40 @@ class Module
             Log::insert(__FUNCTION__, [], $e->getMessage());
 
             return null;
+        }
+    }
+
+    /**
+     * Get details for a specific queue task.
+     *
+     * @param  int  $serviceID
+     * @param  int  $queueId
+     * @return object|false
+     */
+    public function getQueueTask($serviceID, $queueId)
+    {
+        try {
+            $queueId = (int) $queueId;
+            if ($queueId <= 0) {
+                return false;
+            }
+
+            $ctx = $this->resolveServiceContext($serviceID);
+            if (! $ctx) {
+                return false;
+            }
+
+            $data = $ctx['request']->get($ctx['cp']['url'] . '/queue/' . $queueId);
+            Log::insert(__FUNCTION__, $ctx['request']->getRequestInfo(), $data);
+
+            if ($ctx['request']->getRequestInfo('http_code') == 200) {
+                return json_decode($data);
+            }
+
+            return false;
+        } catch (\Exception $e) {
+            Log::insert(__FUNCTION__, [], $e->getMessage());
+            return false;
         }
     }
 }

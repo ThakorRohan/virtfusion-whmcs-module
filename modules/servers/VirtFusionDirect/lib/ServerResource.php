@@ -96,15 +96,11 @@ class ServerResource
             'username' => isset($server['owner']['email']) ? $server['owner']['email'] : '',
             'password' => '',
             'primaryNetwork' => [
-                'ipv4'          => ['-'],
+                'ipv4' => ['-'],
                 'ipv4Unformatted' => [],
-                'ipv4Details'   => [],   // [{address, gateway, netmask, cidr}]
-                'ipv6'          => ['-'],
+                'ipv6' => ['-'],
                 'ipv6Unformatted' => [],
-                'mac'           => '-',
-                'gateway'       => '-',
-                'netmask'       => '-',
-                'cidr'          => '-',
+                'mac' => '-',
             ],
             'vncEnabled' => isset($server['vnc']['enabled']) ? (bool) $server['vnc']['enabled'] : false,
             'memoryRaw' => isset($server['settings']['resources']['memory']) ? (int) $server['settings']['resources']['memory'] : 0,
@@ -127,6 +123,9 @@ class ServerResource
             'location' => $server['hypervisor']['group']['name'] ?? '-',
             'locationIcon' => $server['hypervisor']['group']['icon'] ?? null,
             'hypervisorMaintenance' => (bool) ($server['hypervisor']['maintenance'] ?? false),
+            
+            // -- Tasks ----------------------------------------------------
+            'tasks' => $server['tasks'] ?? null,
 
             // -- Server lifetime ------------------------------------------
             'createdAt' => $server['created'] ?? null,
@@ -143,11 +142,7 @@ class ServerResource
                 'memoryActualKB' => isset($server['remoteState']['memory']['actual']) ? (int) $server['remoteState']['memory']['actual'] : null,
                 'memoryUnusedKB' => isset($server['remoteState']['memory']['unused']) ? (int) $server['remoteState']['memory']['unused'] : null,
                 'memoryAvailableKB' => isset($server['remoteState']['memory']['available']) ? (int) $server['remoteState']['memory']['available'] : null,
-                'memoryUsableKB' => isset($server['remoteState']['memory']['usable']) ? (int) $server['remoteState']['memory']['usable'] : null,
                 'memoryRssKB' => isset($server['remoteState']['memory']['rss']) ? (int) $server['remoteState']['memory']['rss'] : null,
-                // Windows VMs using agent_meminfo source return memtotal and memfree instead
-                'memoryMemTotalKB' => isset($server['remoteState']['memory']['memtotal']) ? (int) $server['remoteState']['memory']['memtotal'] : null,
-                'memoryMemFreeKB' => isset($server['remoteState']['memory']['memfree']) ? (int) $server['remoteState']['memory']['memfree'] : null,
                 // disk.{drive}.{rd,wr,fl}.{reqs,bytes,times} — surfacing the
                 // primary drive (vda) cumulative byte counters. JS can derive
                 // throughput rates from successive samples.
@@ -171,21 +166,9 @@ class ServerResource
 
                     if (isset($server['network']['interfaces'][0]['ipv4']) && count($server['network']['interfaces'][0]['ipv4'])) {
                         $data['primaryNetwork']['ipv4'] = [];
-                        $data['primaryNetwork']['ipv4Details'] = [];
                         foreach ($server['network']['interfaces'][0]['ipv4'] as $ip) {
                             $data['primaryNetwork']['ipv4'][] = $ip['address'];
-                            $data['primaryNetwork']['ipv4Details'][] = [
-                                'address' => $ip['address'] ?? '-',
-                                'gateway' => $ip['gateway'] ?? '-',
-                                'netmask' => $ip['netmask'] ?? '-',
-                                'cidr'    => $ip['cidr'] ?? '-',
-                            ];
                         }
-                        // Promote primary IP's network details to top-level for easy JS access
-                        $primary = $server['network']['interfaces'][0]['ipv4'][0] ?? [];
-                        $data['primaryNetwork']['gateway'] = $primary['gateway'] ?? '-';
-                        $data['primaryNetwork']['netmask'] = $primary['netmask'] ?? '-';
-                        $data['primaryNetwork']['cidr']    = $primary['cidr'] ?? '-';
                     }
 
                     if (isset($server['network']['interfaces'][0]['ipv6']) && count($server['network']['interfaces'][0]['ipv6'])) {

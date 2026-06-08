@@ -30,10 +30,14 @@
         </div>
     </div>
     
-    <div id="vf-action-progress" style="display:none;">
-        <div class="spinner-border spinner-border-sm text-light"></div>
-        <span id="vf-action-progress-text"></span>
-        <span id="vf-action-progress-timer" class="ml-auto" style="margin-left:auto;"></span>
+    <div id="vf-action-progress" style="display:none;" class="mb-3">
+        <div class="d-flex justify-content-between mb-1">
+            <span id="vf-action-progress-text" class="vf-small font-weight-bold" style="color:#0f172a;">Processing...</span>
+            <span id="vf-action-progress-pct" class="vf-small text-muted font-weight-bold">0%</span>
+        </div>
+        <div class="progress" style="height:8px; border-radius:4px; background-color:#e2e8f0;">
+            <div id="vf-action-progress-bar" class="progress-bar progress-bar-striped progress-bar-animated bg-primary" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+        </div>
     </div>
     
     <div id="vf-server-info-loader-container">

@@ -53,12 +53,15 @@ require dirname(__DIR__, 3) . '/init.php';
  */
 
 use WHMCS\Database\Capsule;
+use WHMCS\Module\Server\VirtFusionDirect\ConfigureService;
+
 use WHMCS\Module\Server\VirtFusionDirect\Log;
 use WHMCS\Module\Server\VirtFusionDirect\Module;
 use WHMCS\Module\Server\VirtFusionDirect\PowerDns\Config as PowerDnsConfig;
 use WHMCS\Module\Server\VirtFusionDirect\PowerDns\IpUtil;
 use WHMCS\Module\Server\VirtFusionDirect\PowerDns\PtrManager;
 use WHMCS\Module\Server\VirtFusionDirect\ServerResource;
+use WHMCS\User\User;
 
 $vf = new Module;
 
@@ -129,6 +132,36 @@ try {
             break;
 
             /**
+             * Get details of a background queue task.
+             */
+        case 'queueTask':
+
+            $serviceID = $vf->validateServiceID(true);
+
+            if (! $vf->validateUserOwnsService($serviceID)) {
+                $vf->output(['success' => false, 'errors' => 'service <> owner mismatch'], true, true, 403);
+                break;
+            }
+
+            $vf->requireProvisionedService($serviceID);
+
+            $queueId = isset($_GET['queueId']) ? (int) $_GET['queueId'] : 0;
+            if ($queueId <= 0) {
+                $vf->output(['success' => false, 'errors' => 'Invalid queue ID'], true, true, 400);
+                break;
+            }
+
+            $result = $vf->getQueueTask($serviceID, $queueId);
+
+            if ($result !== false) {
+                $vf->output(['success' => true, 'data' => $result], true, true, 200);
+                break;
+            }
+
+            $vf->output(['success' => false, 'errors' => 'Unable to retrieve queue task'], true, true, 500);
+            break;
+
+            /**
              * Login as server owner.
              */
         case 'loginAsServerOwner':
@@ -184,7 +217,8 @@ try {
             $result = $vf->serverPowerAction($serviceID, $powerAction);
 
             if ($result) {
-                $vf->output(['success' => true, 'data' => ['action' => $powerAction, 'message' => 'Power action queued successfully']], true, true, 200);
+                $queueId = isset($result->data->queueId) ? (int) $result->data->queueId : null;
+                $vf->output(['success' => true, 'data' => ['action' => $powerAction, 'message' => 'Power action queued successfully', 'queueId' => $queueId]], true, true, 200);
                 break;
             }
 
@@ -225,7 +259,8 @@ try {
             $result = $vf->rebuildServer($serviceID, $osId, $hostname, $sshKey);
 
             if ($result) {
-                $vf->output(['success' => true, 'data' => ['message' => 'Server rebuild initiated successfully']], true, true, 200);
+                $queueId = isset($result->data->queueId) ? (int) $result->data->queueId : null;
+                $vf->output(['success' => true, 'data' => ['message' => 'Server rebuild initiated successfully', 'queueId' => $queueId]], true, true, 200);
                 break;
             }
 
@@ -233,7 +268,10 @@ try {
             break;
 
             /**
-             * Get SSH keys for the current user (for rebuild auth panel).
+             * List the current customer's existing VirtFusion SSH keys (read-only)
+             * so the rebuild panel can offer them. Keys are scoped to the
+             * authenticated owner — the VF user is derived from $clientId, never
+             * from request input — so there is no cross-customer exposure.
              */
         case 'sshKeys':
 
@@ -248,18 +286,21 @@ try {
             $vf->requireProvisionedService($serviceID);
 
             try {
-                $cs = new \WHMCS\Module\Server\VirtFusionDirect\ConfigureService;
-                $user = \WHMCS\User\User::find($clientId);
+                $cs = new ConfigureService;
+                $user = User::find($clientId);
                 $sshKeysData = $cs->getUserSshKeys($user);
                 $keys = [];
                 if ($sshKeysData && isset($sshKeysData['data'])) {
                     $keys = array_values(array_filter(array_map(function ($k) {
-                        if (empty($k['id']) || empty($k['name'])) return null;
-                        return ['id' => $k['id'], 'name' => $k['name']];
+                        if (empty($k['id']) || empty($k['name'])) {
+                            return null;
+                        }
+
+                        return ['id' => (int) $k['id'], 'name' => (string) $k['name']];
                     }, $sshKeysData['data'])));
                 }
                 $vf->output(['success' => true, 'data' => $keys], true, true, 200);
-            } catch (\Throwable $e) {
+            } catch (Throwable $e) {
                 Log::insert('sshKeys', [], $e->getMessage());
                 $vf->output(['success' => true, 'data' => []], true, true, 200);
             }
@@ -358,6 +399,7 @@ try {
             }
 
             $result = $vf->resetServerPassword($serviceID, $user);
+
 
             if ($result !== false) {
                 $vf->output(['success' => true, 'data' => $result], true, true, 200);
@@ -590,6 +632,7 @@ try {
 </body>
 </html><?php
             exit;
+
 
             /**
              * Toggle VNC on/off.

@@ -327,23 +327,78 @@ function vfToggleIpMask() {
 // =========================================================================
 
 var _vfProgressTimer = null;
+var _vfQueueTimer = null;
 
-function vfShowProgress(label) {
-    var startTime = Date.now();
-    $("#vf-action-progress-text").text(label);
-    $("#vf-action-progress-timer").text("0s");
+function vfShowProgress(queueId, serviceId, systemUrl, fallbackLabel) {
     $("#vf-action-progress").show();
 
-    _vfProgressTimer = setInterval(function () {
-        var elapsed = Math.floor((Date.now() - startTime) / 1000);
-        $("#vf-action-progress-timer").text(elapsed + "s");
-    }, 1000);
+    if (!queueId) {
+        $("#vf-action-progress-text").text(fallbackLabel || "Processing...");
+        $("#vf-action-progress-pct").text("");
+        $("#vf-action-progress-bar").css("width", "100%").addClass("progress-bar-striped progress-bar-animated").removeClass("bg-success bg-danger");
+        return;
+    }
+
+    if (_vfQueueTimer) clearInterval(_vfQueueTimer);
+
+    function pollQueue() {
+        $.ajax({
+            type: "GET",
+            dataType: "json",
+            url: vfUrl(systemUrl, serviceId, "queueTask") + "&queueId=" + encodeURIComponent(queueId)
+        }).done(function (response) {
+            if (response.success && response.data && response.data.data) {
+                var task = response.data.data;
+                var progress = task.progress || 0;
+                var cmd = task.command || "Processing";
+                var status = task.status || "";
+
+                if (cmd === "boot") cmd = "Starting";
+                else if (cmd === "shutdown") cmd = "Shutting down";
+                else if (cmd === "restart") cmd = "Restarting";
+                else if (cmd === "poweroff") cmd = "Forcing off";
+                else if (cmd === "rebuild") cmd = "Rebuilding";
+                else if (cmd === "password") cmd = "Resetting password";
+                
+                // Capitalize first letter if not caught by map
+                cmd = cmd.charAt(0).toUpperCase() + cmd.slice(1);
+
+                $("#vf-action-progress-text").text(cmd + "...");
+                $("#vf-action-progress-pct").text(progress + "%");
+                $("#vf-action-progress-bar").css("width", progress + "%").removeClass("bg-success bg-danger");
+                
+                if (status === "complete") {
+                    $("#vf-action-progress-pct").text("Complete");
+                    $("#vf-action-progress-bar").css("width", "100%").addClass("bg-success").removeClass("progress-bar-animated progress-bar-striped");
+                    clearInterval(_vfQueueTimer);
+                    // Slight delay to allow reading 'Complete'
+                    setTimeout(function() {
+                        vfHideProgress();
+                        vfServerData(serviceId, systemUrl);
+                    }, 2500);
+                } else if (status === "failed") {
+                    $("#vf-action-progress-pct").text("Failed");
+                    $("#vf-action-progress-bar").addClass("bg-danger").removeClass("progress-bar-animated progress-bar-striped");
+                    clearInterval(_vfQueueTimer);
+                } else {
+                    $("#vf-action-progress-bar").addClass("progress-bar-animated progress-bar-striped");
+                }
+            }
+        });
+    }
+
+    pollQueue();
+    _vfQueueTimer = setInterval(pollQueue, 2500);
 }
 
 function vfHideProgress() {
     if (_vfProgressTimer) {
         clearInterval(_vfProgressTimer);
         _vfProgressTimer = null;
+    }
+    if (_vfQueueTimer) {
+        clearInterval(_vfQueueTimer);
+        _vfQueueTimer = null;
     }
     $("#vf-action-progress").hide();
 }
@@ -505,6 +560,15 @@ function vfServerData(serviceId, systemUrl) {
             }
 
             $("#vf-resources-panel").show();
+
+            // Check for active queue tasks
+            if (data.tasks && data.tasks.active && data.tasks.actions && data.tasks.actions.pending && data.tasks.actions.pending.length > 0) {
+                var pendingTask = data.tasks.actions.pending[0];
+                var qid = typeof pendingTask === 'object' ? (pendingTask.id || pendingTask.queue_id || pendingTask.queueId) : pendingTask;
+                if (qid) {
+                    vfShowProgress(qid, serviceId, systemUrl, "Processing...");
+                }
+            }
 
             // Re-apply mask state to the IP cells we just (re)rendered.
             vfApplyIpMask();
@@ -674,6 +738,12 @@ function vfPowerAction(serviceId, systemUrl, action) {
     }).done(function (response) {
         if (response.success) {
             vfShowAlert(alertDiv, "success",response.data.message || (actionLabels[action] + " server..."));
+            if (response.data.queueId) {
+                vfShowProgress(response.data.queueId, serviceId, systemUrl, actionLabels[action]);
+            } else {
+                vfShowProgress(null, null, null, actionLabels[action]);
+                setTimeout(vfHideProgress, 3000);
+            }
         } else {
             vfShowAlert(alertDiv, "danger","Power action failed. Please try again.");
         }
@@ -1121,7 +1191,7 @@ function vfRebuildServer(serviceId, systemUrl) {
             $("#vf-rebuild-button").prop("disabled", true);
             $("#vf-rebuild-spinner").show();
             alertDiv.hide();
-            vfShowProgress("Rebuilding server...");
+            vfShowProgress(null, null, null, "Rebuilding server...");
 
             $.ajax({
                 type: "POST",
@@ -1131,14 +1201,18 @@ function vfRebuildServer(serviceId, systemUrl) {
             }).done(function (response) {
                 if (response.success) {
                     vfShowAlert(alertDiv, "success", response.data.message || "Server rebuild initiated. You will receive an email when the process is complete.");
+                    if (response.data.queueId) {
+                        vfShowProgress(response.data.queueId, serviceId, systemUrl, "Rebuilding");
+                    }
                 } else {
                     vfShowAlert(alertDiv, "danger", "Rebuild failed. Please try again.");
+                    vfHideProgress();
                 }
                 alertDiv.show();
             }).fail(function () {
                 vfShowAlert(alertDiv, "danger", "An error occurred. Please try again.");
-            }).always(function () {
                 vfHideProgress();
+            }).always(function () {
                 $("#vf-rebuild-spinner").hide();
                 setTimeout(function () {
                     $("#vf-rebuild-button").prop("disabled", false);
