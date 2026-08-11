@@ -62,7 +62,7 @@ Features exclusive to this fork, not present in the upstream EZSCALE module:
 | Queue Task API | ❌ | ✅ `getQueueTask()` |
 | Task State in ServerResource | ❌ | ✅ Injected |
 | VirtFusionDns addon | ✅ Included | ❌ Removed (separate concern) |
-| API docs folder | ✅ Included | ❌ Removed (reduces footprint) |
+| VirtFusion API docs | ❌ Not included | ✅ AI-optimized knowledge base at [`docs/vf-api/`](#-virtfusion-api-documentation) |
 | Install script | ✅ Included | ❌ Removed (submodule-based) |
 
 ---
@@ -127,6 +127,88 @@ graph TB
     style Module fill:#1e293b,stroke:#8b5cf6,color:#fff
     style VF fill:#1e3a2f,stroke:#10b981,color:#fff
 ```
+
+---
+
+## 📚 VirtFusion API Documentation
+
+This module ships a structured, AI-optimized knowledge base for the VirtFusion Global API at
+[`docs/vf-api/`](docs/vf-api/), built so a developer or AI agent never has to parse the raw
+8,000+ line `openapi.yaml` to find one endpoint.
+
+### Why it exists
+
+`docs/vf-api/openapi.yaml` is VirtFusion's complete API spec — every server, network, backup,
+user, and self-service endpoint in one file. Reading it end-to-end for a one-line change (e.g.
+"what does the power-off endpoint return?") wastes context and invites guessing. `docs/vf-api/`
+splits it into progressively-loadable layers so you read only what the task needs.
+
+### What's in `docs/vf-api/`
+
+| File / directory | Contents |
+|---|---|
+| [`AI_GUIDE.md`](docs/vf-api/AI_GUIDE.md) | **Start here.** How to navigate the rest of the tree, plus hard rules (never guess an endpoint, never invent parameters, verify before trusting). |
+| [`ENDPOINTS.md`](docs/vf-api/ENDPOINTS.md) | Compact keyword → endpoint lookup (e.g. "reboot", "assign ip", "suspend server"). Load this first when you know the task but not the endpoint. |
+| [`API_INDEX.md`](docs/vf-api/API_INDEX.md) | Full table, one row per operation — all 85 endpoints across 20 domains. |
+| [`RELATIONSHIPS.md`](docs/vf-api/RELATIONSHIPS.md) | Resource hierarchy (hypervisor group → package → user → server → network/power/backups) and how identifiers (`serverId`, `userId`, `extRelationId`, `packageId`, etc.) flow between endpoints — including naming gotchas the spec doesn't call out itself. |
+| [`MODULE_API_MAP.md`](docs/vf-api/MODULE_API_MAP.md) | Every WHMCS function mapped to the module file/method that implements it and the exact VirtFusion endpoint(s) it calls. |
+| [`domains/`](docs/vf-api/domains/) | One Markdown file per VirtFusion API tag (`servers.md`, `servers-power.md`, `servers-network-firewall.md`, `backups.md`, `users.md`, `packages.md`, `hypervisors.md`, etc. — 20 files total) with full request/response detail per endpoint. |
+| [`workflows/`](docs/vf-api/workflows/) | Task-oriented call sequences — `server-provisioning.md`, `server-power.md`, `server-rebuild.md`, `server-backups.md`, `server-network.md`, `user-management.md`, and the suspend/unsuspend/terminate lifecycle — derived from the actual running code, not guessed. |
+| [`openapi.yaml`](docs/vf-api/openapi.yaml) | The canonical, unmodified VirtFusion OpenAPI 3.0.1 spec. **Final authority** — if anything else in `docs/vf-api/` disagrees with it, the spec wins. |
+| [`scripts/generate_docs.py`](docs/vf-api/scripts/generate_docs.py) | Regenerates `API_INDEX.md`, `ENDPOINTS.md`, and `domains/*.md` from `openapi.yaml`. Re-run after any spec change instead of hand-editing those three. |
+
+### Which doc for which task
+
+| Working on... | Consult |
+|---|---|
+| Provisioning (`CreateAccount`) | `workflows/server-provisioning.md` → `domains/servers.md` (+ `packages.md`, `users.md`/`users-external-rel.md`, `hypervisor-groups.md`, `media.md`/`ssh-keys.md` as relevant) |
+| Power (boot/restart/shutdown/poweroff) | `domains/servers-power.md` only — fully self-contained |
+| Suspend / unsuspend / terminate | `workflows/server-suspension.md` / `server-unsuspension.md` / `server-termination.md` → `domains/servers.md` |
+| Rebuild / reinstall OS | `workflows/server-rebuild.md` → `domains/servers.md`, `media.md`, `ssh-keys.md` |
+| Backups | `workflows/server-backups.md` → `domains/backups.md` (implemented), `servers-backup-manager.md` (documented but unused — see the workflow for the gap) |
+| Networking / IPs / traffic | `workflows/server-network.md` (mostly a gap map today) → `domains/servers-network.md`, `servers-network-traffic.md`, `ip-blocks.md` |
+| Firewall | `domains/servers-network-firewall.md` only |
+| Users / customers / self-service | `workflows/user-management.md` → `domains/users.md`, `users-external-rel.md`, `self-service.md`, `self-service-external-rel.md` |
+| Packages / resizing | `domains/servers.md` (package change, resource modify) + `domains/packages.md` |
+| Hypervisors / hypervisor groups / stock | `domains/hypervisors.md`, `hypervisor-groups.md` (see also `lib/StockControl.php`) |
+
+### How the docs relate to the module source
+
+`docs/vf-api/MODULE_API_MAP.md` is the bridge: it lists every WHMCS entry point
+(`VirtFusionDirect_CreateAccount`, `VirtFusionDirect_SuspendAccount`, etc.), the exact module
+file and method that implements it (`lib/ModuleFunctions.php`, `lib/Module.php`,
+`lib/ConfigureService.php` — see [Directory Structure](#-directory-structure)), and the
+VirtFusion endpoint(s) it calls, with a link to the matching domain doc. Always check that file
+before assuming an integration doesn't exist yet or needs to be built from scratch.
+
+### Quick lookup vs. full reference vs. raw contract
+
+- **Quick endpoint lookup:** `docs/vf-api/ENDPOINTS.md` (keyword) or `API_INDEX.md` (full table).
+- **Complete domain-specific documentation:** `docs/vf-api/domains/*.md`.
+- **Multi-endpoint sequences:** `docs/vf-api/workflows/*.md`.
+- **Module ↔ API mapping:** `docs/vf-api/MODULE_API_MAP.md`.
+- **Canonical/raw spec, exact contract verification:** `docs/vf-api/openapi.yaml` — always wins on conflict with anything else in `docs/vf-api/`.
+
+### Development routing model
+
+```
+Task
+  → README.md                              (this file — orientation)
+  → Relevant module source                  (Directory Structure below, or MODULE_API_MAP.md)
+  → docs/vf-api/ENDPOINTS.md / API_INDEX.md (endpoint lookup)
+  → docs/vf-api/domains/<domain>.md         (full endpoint detail)
+  → docs/vf-api/workflows/<task>.md         (multi-endpoint sequence, if applicable)
+  → docs/vf-api/MODULE_API_MAP.md           (confirm existing wiring before adding new)
+  → docs/vf-api/openapi.yaml                (exact contract verification, if needed)
+  → Implement
+  → Test against the live WHMCS/VirtFusion environment
+  → Commit/push per SUBMODULE_AI_INSTRUCTIONS.md's Git workflow
+```
+
+For the full navigation guide (including hard rules on never guessing an endpoint or inventing
+a parameter), start at [`docs/vf-api/AI_GUIDE.md`](docs/vf-api/AI_GUIDE.md). For submodule Git
+safety and the required pre-change sequence, see
+[`SUBMODULE_AI_INSTRUCTIONS.md`](SUBMODULE_AI_INSTRUCTIONS.md) (local-only, not committed).
 
 ---
 
@@ -385,16 +467,28 @@ VirtFusionDirect/
 │       ├── PtrManager.php
 │       └── Resolver.php
 │
-└── 📁 templates/
-    ├── overview.tpl            Client area server overview
-    ├── error.tpl               Error display
-    ├── 📁 css/
-    │   ├── cart-wizard.css      Checkout OS/SSH key styles (FlashRDP grid layout)
-    │   └── module.css           Client area module styles
-    └── 📁 js/
-        ├── cart-wizard.js       Checkout OS/SSH key selection logic
-        ├── module.js            Client area interactive features
-        └── keygen.js            Ed25519 SSH key generator (Web Crypto API)
+├── 📁 templates/
+│   ├── overview.tpl            Client area server overview
+│   ├── error.tpl               Error display
+│   ├── 📁 css/
+│   │   ├── cart-wizard.css      Checkout OS/SSH key styles (FlashRDP grid layout)
+│   │   └── module.css           Client area module styles
+│   └── 📁 js/
+│       ├── cart-wizard.js       Checkout OS/SSH key selection logic
+│       ├── module.js            Client area interactive features
+│       └── keygen.js            Ed25519 SSH key generator (Web Crypto API)
+│
+└── 📁 docs/vf-api/             VirtFusion API knowledge base (AI-optimized) — see "VirtFusion API Documentation" above
+    ├── AI_GUIDE.md              Start here — how to navigate this tree
+    ├── ENDPOINTS.md             Compact keyword → endpoint lookup
+    ├── API_INDEX.md             Full endpoint table (85 operations)
+    ├── RELATIONSHIPS.md         Resource hierarchy + identifier flow
+    ├── MODULE_API_MAP.md        WHMCS function → module code → VirtFusion endpoint
+    ├── openapi.yaml             Canonical OpenAPI 3.0.1 spec (final authority)
+    ├── 📁 domains/              One file per API domain (20 files: servers, servers-power, backups, users, ...)
+    ├── 📁 workflows/            Task-oriented call sequences (9 files: provisioning, power, rebuild, ...)
+    └── 📁 scripts/
+        └── generate_docs.py      Regenerates API_INDEX.md/ENDPOINTS.md/domains/*.md from openapi.yaml
 ```
 
 ---
