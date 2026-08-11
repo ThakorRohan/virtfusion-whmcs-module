@@ -335,7 +335,7 @@ function VirtFusionDirect_validateServerConfig(array $params)
  * Usage Update - called by WHMCS daily cron to sync bandwidth and disk usage.
  *
  * Updates tblhosting with disk and bandwidth usage data from VirtFusion.
- * Fields updated: diskused, disklimit, bwused, bwlimit, lastupdate
+ * Fields updated: diskusage, disklimit, bwusage, bwlimit, lastupdate
  *
  * @param  array  $params  Server access credentials
  * @return string 'success' or error message
@@ -368,7 +368,7 @@ function VirtFusionDirect_UsageUpdate(array $params)
                 // Fetch server settings (limits + storage profile) with remoteState=true
                 // so the qemu-agent fsinfo block is included for disk usage. The agent
                 // is best-effort — guests without qemu-agent installed will have no
-                // fsinfo, in which case we simply skip the diskused write rather than
+                // fsinfo, in which case we simply skip the diskusage write rather than
                 // zeroing it.
                 $request = $module->initCurl($cp['token']);
                 $data = $request->get($cp['url'] . '/servers/' . (int) $systemService->server_id . '?remoteState=true');
@@ -388,7 +388,7 @@ function VirtFusionDirect_UsageUpdate(array $params)
                 // Disk usage (WHMCS expects MB) — derived from qemu-agent fsinfo when
                 // available. Sum across all reported filesystems (root + any extra
                 // mounts) and convert bytes -> MB. If the agent isn't running we get
-                // no fsinfo entries and leave diskused untouched.
+                // no fsinfo entries and leave diskusage untouched.
                 $fsinfo = $server['remoteState']['agent']['fsinfo'] ?? null;
                 if (is_array($fsinfo) && $fsinfo !== []) {
                     $diskUsedBytes = 0;
@@ -398,7 +398,7 @@ function VirtFusionDirect_UsageUpdate(array $params)
                         }
                     }
                     if ($diskUsedBytes > 0) {
-                        $update['diskused'] = (int) round($diskUsedBytes / 1048576);
+                        $update['diskusage'] = (int) round($diskUsedBytes / 1048576);
                     }
                 }
                 if (isset($server['settings']['resources']['storage'])) {
@@ -416,7 +416,7 @@ function VirtFusionDirect_UsageUpdate(array $params)
                     $trafficJson = json_decode($trafficData, true);
                     $currentPeriod = $trafficJson['data']['monthly'][0] ?? null;
                     if (is_array($currentPeriod) && isset($currentPeriod['total']) && is_numeric($currentPeriod['total'])) {
-                        $update['bwused'] = (int) round($currentPeriod['total'] / 1048576);
+                        $update['bwusage'] = (int) round($currentPeriod['total'] / 1048576);
                     }
                 }
                 if (isset($server['settings']['resources']['traffic'])) {
