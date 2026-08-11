@@ -142,7 +142,13 @@ class ServerResource
                 'memoryActualKB' => isset($server['remoteState']['memory']['actual']) ? (int) $server['remoteState']['memory']['actual'] : null,
                 'memoryUnusedKB' => isset($server['remoteState']['memory']['unused']) ? (int) $server['remoteState']['memory']['unused'] : null,
                 'memoryAvailableKB' => isset($server['remoteState']['memory']['available']) ? (int) $server['remoteState']['memory']['available'] : null,
+                'memoryUsableKB' => isset($server['remoteState']['memory']['usable']) ? (int) $server['remoteState']['memory']['usable'] : null,
                 'memoryRssKB' => isset($server['remoteState']['memory']['rss']) ? (int) $server['remoteState']['memory']['rss'] : null,
+                // Windows guests report via qemu-guest-agent's agent_meminfo source
+                // instead of the libvirt balloon driver — different field names
+                // (memtotal/memfree, also KB), same unit convention.
+                'memoryMemTotalKB' => isset($server['remoteState']['memory']['memtotal']) ? (int) $server['remoteState']['memory']['memtotal'] : null,
+                'memoryMemFreeKB' => isset($server['remoteState']['memory']['memfree']) ? (int) $server['remoteState']['memory']['memfree'] : null,
                 // disk.{drive}.{rd,wr,fl}.{reqs,bytes,times} — surfacing the
                 // primary drive (vda) cumulative byte counters. JS can derive
                 // throughput rates from successive samples.
