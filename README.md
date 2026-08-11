@@ -50,6 +50,11 @@ You also need a VirtFusion API token with the following permissions:
 
 ## Features
 
+### 🌟 FlashRDP Enhanced Features (Exclusive to this Fork)
+- **Premium Checkout UI:** Replaced the default flexbox pills with a modern, responsive 5-column CSS grid (3-column on mobile) for OS selection.
+- **Smart Priority Sorting:** Intelligently sorts OS templates to push popular distros (Windows, Ubuntu, Debian, CentOS, AlmaLinux) to the top of the list, reducing friction for 90% of users.
+- **Enhanced API Integration:** Added internal endpoints for fetching Queue Tasks (`getQueueTask`) and injected background task states into the `ServerResource` to track provisioning jobs natively.
+
 ### Server Provisioning
 - Automatic server creation with VirtFusion user account linking
 - Server suspension, unsuspension, and termination

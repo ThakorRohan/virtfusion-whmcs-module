@@ -420,7 +420,23 @@ add_hook('ClientAreaFooterOutput', 1, function ($vars) {
                 ];
             }
         }
-        usort($osGroups, fn ($a, $b) => strcasecmp($a['label'], $b['label']));
+        $osOrder = [
+            'Windows' => 1,
+            'Ubuntu' => 2,
+            'Debian' => 3,
+            'CentOS' => 4,
+            'AlmaLinux' => 5,
+        ];
+        usort($osGroups, function ($a, $b) use ($osOrder) {
+            $posA = $osOrder[$a['label']] ?? 99;
+            $posB = $osOrder[$b['label']] ?? 99;
+            if ($posA === $posB) {
+                if ($a['label'] === 'Other') return 1;
+                if ($b['label'] === 'Other') return -1;
+                return strcasecmp($a['label'], $b['label']);
+            }
+            return $posA <=> $posB;
+        });
 
         $sshKeysOptions = [];
         if (isset($vars['loggedinuser']) && $vars['loggedinuser']) {
@@ -452,7 +468,7 @@ add_hook('ClientAreaFooterOutput', 1, function ($vars) {
 
         $systemUrl = rtrim(Database::getSystemUrl(), '/') . '/';
         $jsonFlags = JSON_THROW_ON_ERROR | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT;
-        $v = '20260604b';
+        $v = '20260811f';
 
         $configJson = json_encode([
             'osGroups' => $osGroups,

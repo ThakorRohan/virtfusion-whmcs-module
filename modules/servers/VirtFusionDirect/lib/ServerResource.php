@@ -123,6 +123,9 @@ class ServerResource
             'location' => $server['hypervisor']['group']['name'] ?? '-',
             'locationIcon' => $server['hypervisor']['group']['icon'] ?? null,
             'hypervisorMaintenance' => (bool) ($server['hypervisor']['maintenance'] ?? false),
+            
+            // -- Tasks ----------------------------------------------------
+            'tasks' => $server['tasks'] ?? null,
 
             // -- Server lifetime ------------------------------------------
             'createdAt' => $server['created'] ?? null,

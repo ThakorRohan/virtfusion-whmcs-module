@@ -15,14 +15,14 @@
 .vf-rowbar-divider{width:1px;height:12px;border-radius:var(--vf-radius-sm);background:#e5e7eb;display:inline-block;flex:0 0 auto}
 #vf-os-rowbar.vf-has-version .vf-rowbar-col.vf-right{color:var(--vf-accent)}
 
-/* ── Family pills ── */
-.vf-os-family-row{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px}
-.vf-os-family-card{appearance:none;border:1px solid #e5e7eb;background:rgba(255,255,255,0.92);border-radius:var(--vf-radius-sm);padding:10px 14px;display:inline-flex;align-items:center;gap:10px;cursor:pointer;color:var(--vf-ink);font-weight:700;font-size:13px;line-height:1;box-shadow:0 1px 2px rgba(0,0,0,0.04);transition:all 0.18s ease}
-.vf-os-family-card:hover{transform:translateY(-1px);border-color:rgba(37,99,235,0.40);box-shadow:0 4px 10px rgba(0,0,0,0.08);background:#fff}
-.vf-os-family-card[aria-pressed="true"]{border-color:var(--vf-accent);background:rgba(37,99,235,0.06);box-shadow:0 0 0 2px rgba(37,99,235,0.15)}
-.vf-os-family-card:focus-visible{outline:none;box-shadow:0 0 0 5px var(--vf-accent-ring)}
-.vf-os-icon{width:30px;height:30px;border-radius:12px;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;overflow:hidden;background:rgba(15,23,42,0.04);border:1px solid rgba(15,23,42,0.12);box-shadow:inset 0 1px 0 rgba(255,255,255,0.30)}
-.vf-os-icon-img{width:22px;height:22px;object-fit:contain;display:block;image-rendering:-webkit-optimize-contrast}
+/* ── Family cards ── */
+.vf-os-family-row{display:grid;grid-template-columns:repeat(5,minmax(0,108px));gap:14px;margin-top:16px}
+.vf-os-family-card{width:100%;aspect-ratio:1;appearance:none;border:1px solid #e2e8f0;background:#fff;border-radius:16px;padding:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;cursor:pointer;color:var(--vf-ink);font-weight:700;font-size:13px;line-height:1;box-shadow:0 1px 2px rgba(0,0,0,0.02);transition:all 0.2s ease;box-sizing:border-box}
+.vf-os-family-card:hover{transform:translateY(-2px);border-color:rgba(37,99,235,0.30);box-shadow:0 8px 16px rgba(37,99,235,0.06)}
+.vf-os-family-card[aria-pressed="true"]{border-color:rgba(37,99,235,0.6);background:#f4f7ff;box-shadow:0 0 0 1px rgba(37,99,235,0.6), 0 4px 12px rgba(37,99,235,0.06)}
+.vf-os-family-card:focus-visible{outline:none;box-shadow:0 0 0 4px var(--vf-accent-ring)}
+.vf-os-icon{width:36px;height:36px;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto}
+.vf-os-icon-img{width:100%;height:100%;max-width:32px;max-height:32px;object-fit:contain;display:block;image-rendering:-webkit-optimize-contrast}
 
 /* ── Version panel ── */
 #vf-os-versions-wrap{display:none;margin-top:14px}
@@ -47,7 +47,7 @@
 .vf-os-version-card[aria-pressed="true"] .vf-os-radio::after{opacity:1;transform:scale(1)}
 
 @media(max-width:540px){
-.vf-os-family-card{flex:0 0 calc(50% - 5px);box-sizing:border-box}
+.vf-os-family-row{grid-template-columns:repeat(3,1fr)}
 #vf-os-versions-list.vf-grid,#vf-os-versions-list.vf-grid-4{grid-template-columns:1fr}
 #vf-os-versions-list.vf-grid .vf-os-version-card{border-radius:16px;padding:12px;grid-template-columns:22px 1fr}
 #vf-os-versions-list.vf-grid .vf-os-version-text{white-space:normal;overflow:visible;text-overflow:clip}

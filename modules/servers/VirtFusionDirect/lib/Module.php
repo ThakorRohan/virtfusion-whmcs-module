@@ -1616,4 +1616,38 @@ class Module
             return null;
         }
     }
+
+    /**
+     * Get details for a specific queue task.
+     *
+     * @param  int  $serviceID
+     * @param  int  $queueId
+     * @return object|false
+     */
+    public function getQueueTask($serviceID, $queueId)
+    {
+        try {
+            $queueId = (int) $queueId;
+            if ($queueId <= 0) {
+                return false;
+            }
+
+            $ctx = $this->resolveServiceContext($serviceID);
+            if (! $ctx) {
+                return false;
+            }
+
+            $data = $ctx['request']->get($ctx['cp']['url'] . '/queue/' . $queueId);
+            Log::insert(__FUNCTION__, $ctx['request']->getRequestInfo(), $data);
+
+            if ($ctx['request']->getRequestInfo('http_code') == 200) {
+                return json_decode($data);
+            }
+
+            return false;
+        } catch (\Exception $e) {
+            Log::insert(__FUNCTION__, [], $e->getMessage());
+            return false;
+        }
+    }
 }
