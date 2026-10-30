@@ -280,8 +280,8 @@ class ConfigureService extends Module
 
             $request = $this->initCurl($this->cp['token']);
 
-            // Generate a hostname with sufficient entropy to avoid collisions
-            $hostname = 'vps-' . bin2hex(random_bytes(4));
+            // Readable, unused display name (vps-amber-falcon); see ServerName.
+            $name = ServerName::generate();
 
             $sshKeyValue = $vars['customfields']['Initial SSH Key'] ?? null;
             $sshKeyId = null;
@@ -305,7 +305,7 @@ class ConfigureService extends Module
 
             $inputData = [
                 'operatingSystemId' => (int) $osId,
-                'name' => $hostname,
+                'name' => $name,
                 'email' => true,
             ];
 
@@ -322,7 +322,15 @@ class ConfigureService extends Module
             $httpCode = $request->getRequestInfo('http_code');
             Log::insert(__FUNCTION__, $request->getRequestInfo(), $response);
 
-            return $httpCode == 200 || $httpCode == 201;
+            $built = $httpCode == 200 || $httpCode == 201;
+
+            // Record the name now, so the next ServerName::generate() sees it as taken.
+            // Otherwise tblhosting.domain stays empty until a client-area sync runs.
+            if ($built && ! empty($vars['serviceid'])) {
+                Database::updateWhmcsServiceParams((int) $vars['serviceid'], ['tblhosting' => ['domain' => $name]]);
+            }
+
+            return $built;
         } catch (\Exception $e) {
             Log::insert(__FUNCTION__, [], $e->getMessage());
 

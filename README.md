@@ -453,6 +453,7 @@ VirtFusionDirect/
 │   ├── Module.php              VirtFusion API client and core business logic
 │   ├── ModuleFunctions.php     Shared utility functions
 │   ├── ServerResource.php      Server data normalization and presentation
+│   ├── ServerName.php          New-server names (vps-amber-falcon) from local word lists
 │   ├── AdminHTML.php           Admin area HTML rendering
 │   ├── Cache.php               API response caching
 │   ├── ConfigureService.php    Service configuration helpers
@@ -477,6 +478,9 @@ VirtFusionDirect/
 │       ├── cart-wizard.js       Checkout OS/SSH key selection logic
 │       ├── module.js            Client area interactive features
 │       └── keygen.js            Ed25519 SSH key generator (Web Crypto API)
+│
+├── 📁 tests/
+│   └── server-name-check.php   `php tests/server-name-check.php`: word lists + name generator
 │
 └── 📁 docs/vf-api/             VirtFusion API knowledge base (AI-optimized) — see "VirtFusion API Documentation" above
     ├── AI_GUIDE.md              Start here — how to navigate this tree
