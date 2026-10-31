@@ -453,7 +453,7 @@ VirtFusionDirect/
 │   ├── Module.php              VirtFusion API client and core business logic
 │   ├── ModuleFunctions.php     Shared utility functions
 │   ├── ServerResource.php      Server data normalization and presentation
-│   ├── ServerName.php          New-server names (vps-amber-falcon) from local word lists
+│   ├── ServerName.php          New-server names (amber-falcon) from local word lists
 │   ├── AdminHTML.php           Admin area HTML rendering
 │   ├── Cache.php               API response caching
 │   ├── ConfigureService.php    Service configuration helpers

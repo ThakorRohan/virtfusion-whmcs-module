@@ -5,7 +5,7 @@ namespace WHMCS\Module\Server\VirtFusionDirect;
 use WHMCS\Database\Capsule as DB;
 
 /**
- * Readable names for new servers: "vps-" + adjective + "-" + noun, e.g. vps-amber-falcon.
+ * Readable names for new servers: adjective + "-" + noun, e.g. amber-falcon.
  *
  * WHY A LOCAL WORD LIST
  * ---------------------
@@ -18,14 +18,14 @@ use WHMCS\Database\Capsule as DB;
  * minerals, objects, places, music). Left out on purpose: negative or "slow/broken" words,
  * body, religious, drug, weapon and brand words, people, primates and pests, so any random
  * pair reads cleanly on an invoice. Every word is 3-10 lowercase letters and the two lists
- * share no word; tests/server-name-check.php enforces both. The longest name (25 chars) is
+ * share no word; tests/server-name-check.php enforces both. The longest name (21 chars) is
  * still a valid DNS label, in case the customer later uses it as a hostname.
  *
  * UNIQUENESS
  * ----------
  * Checked against tblhosting.domain, which ConfigureService::initServerBuild() fills with
  * the name once VirtFusion accepts the build. Older "vps-<8 hex>" names can never match
- * this format (hex has no hyphen), so they need no backfill.
+ * this format ("vps" is not an adjective here), so they need no backfill.
  */
 class ServerName
 {
@@ -269,7 +269,7 @@ class ServerName
         $adjectives = self::words(self::ADJECTIVES);
         $nouns = self::words(self::NOUNS);
 
-        return 'vps-' . $adjectives[random_int(0, count($adjectives) - 1)] . '-' . $nouns[random_int(0, count($nouns) - 1)];
+        return $adjectives[random_int(0, count($adjectives) - 1)] . '-' . $nouns[random_int(0, count($nouns) - 1)];
     }
 
     /** @return list<string> */

@@ -280,7 +280,7 @@ class ConfigureService extends Module
 
             $request = $this->initCurl($this->cp['token']);
 
-            // Readable, unused display name (vps-amber-falcon); see ServerName.
+            // Readable, unused display name (amber-falcon); see ServerName.
             $name = ServerName::generate();
 
             $sshKeyValue = $vars['customfields']['Initial SSH Key'] ?? null;
