@@ -5,7 +5,7 @@ namespace WHMCS\Module\Server\VirtFusionDirect;
 use WHMCS\Database\Capsule as DB;
 
 /**
- * Readable names for new servers: adjective + "-" + noun, e.g. amber-falcon.
+ * Readable names for new servers: one word, e.g. fearless or falcon.
  *
  * WHY A LOCAL WORD LIST
  * ---------------------
@@ -15,34 +15,35 @@ use WHMCS\Database\Capsule as DB;
  * WHAT GOES IN THE LISTS
  * ----------------------
  * Positive or neutral adjectives, and concrete nouns (animals, plants, landscape, sky,
- * minerals, objects, places, music). Left out on purpose: negative or "slow/broken" words,
- * body, religious, drug, weapon and brand words, people, primates and pests, so any random
- * pair reads cleanly on an invoice. Every word is 3-10 lowercase letters and the two lists
- * share no word; tests/server-name-check.php enforces both. The longest name (21 chars) is
- * still a valid DNS label, in case the customer later uses it as a hostname.
+ * minerals, objects, places, music); a name is one word drawn from both. Left out on
+ * purpose: negative or "slow/broken" words, body, religious, drug, weapon and brand words,
+ * people, primates and pests, our plan names (bronze, silver, gold, diamond, emerald), and
+ * words that read oddly or mislead on their own (free, new, premium, just). Every word is
+ * 3-10 lowercase letters and appears once; tests/server-name-check.php enforces this. Each
+ * name is a valid DNS label, in case the customer later uses it as a hostname.
  *
  * UNIQUENESS
  * ----------
  * Checked against tblhosting.domain, which ConfigureService::initServerBuild() fills with
- * the name once VirtFusion accepts the build. Older "vps-<8 hex>" names can never match
- * this format ("vps" is not an adjective here), so they need no backfill.
+ * the name once VirtFusion accepts the build. Older "vps-<8 hex>" names can never match a
+ * single word, so they need no backfill.
  */
 class ServerName
 {
-    /** Draws before giving up on a free pair and adding a hex suffix instead. */
+    /** Draws before giving up on a free word and adding a hex suffix instead. */
     private const TRIES = 10;
 
     public const ADJECTIVES = <<<'WORDS'
         amber azure beige cerulean cobalt coral crimson cyan indigo ivory jade lilac magenta
         mauve ochre olive pearl russet sable saffron scarlet sepia sienna teal umber violet
-        aqua blue green gray silver golden bronze copper platinum titanium chrome lavender
+        aqua blue green gray copper titanium chrome lavender
         turquoise vermilion carmine cerise fuchsia rosy tawny auburn hazel khaki navy maroon
         burgundy verdant charcoal orange purple pastel neon
         bright radiant shiny shining glowing gleaming glossy lucid luminous lustrous sparkling
         vivid brilliant dazzling twinkling starry sunny sunlit moonlit starlit glinting
         glimmering shimmering beaming lucent clear crisp polished prismatic iridescent opaline
         pearly
-        misty breezy windy stormy snowy frosty rainy cloudy balmy mild dewy wintry vernal
+        misty breezy windy stormy snowy frosty rainy cloudy balmy dewy wintry vernal
         summery autumnal tropical arctic alpine coastal polar boreal lunar solar stellar cosmic
         astral orbital galactic celestial oceanic marine maritime sandy rocky mossy leafy
         grassy woody wooded forested floral rustic earthen northern southern eastern western
@@ -50,25 +51,25 @@ class ServerName
         agile alert amiable ardent artful astute avid brave bold brisk buoyant calm candid
         capable careful cheerful cheery chipper civil classy clever cordial curious dapper
         daring dashing dauntless decisive deft devoted diligent discreet dynamic eager earnest
-        elated elegant eloquent eminent energetic epic exact expert faithful famous fancy
-        fearless festive fervent fiery fleet flexible fluent focused fond frank free fresh
-        friendly frugal gallant genial gentle genuine gifted glad gleeful gracious grand
-        grateful hardy hearty helpful heroic honest hopeful humble ideal jolly jovial joyful
-        joyous jubilant just keen kind kindly lavish lively loyal lucky lyrical magical
-        majestic mellow merry mighty mindful modern modest musical mystic natural neat nimble
-        noble novel patient peaceful perky plucky poetic polite precise prime proud prudent
-        quick quiet rapid ready regal reliable resolute rich robust royal rugged savvy serene
+        elated elegant eloquent eminent energetic epic faithful famous fancy
+        fearless festive fervent fiery fleet flexible fluent focused frank fresh
+        friendly frugal gallant genial gentle genuine gifted gleeful gracious grand
+        grateful hardy hearty helpful heroic honest hopeful humble jolly jovial joyful
+        joyous jubilant keen kind kindly lavish lively loyal lucky lyrical magical
+        majestic mellow merry mighty mindful modern modest musical mystic natural nimble
+        noble novel patient peaceful perky plucky poetic polite precise proud prudent
+        quick quiet rapid regal reliable resolute robust royal rugged savvy serene
         sharp sincere sleek smart smooth snappy snug solid sonic spirited splendid sporty spry
-        stable stately steady sterling stoic strong sturdy suave sublime subtle super superb
-        supreme swift tactful thrifty tidy timely tranquil true trusty upbeat valiant vibrant
+        stable stately steady sterling stoic strong sturdy suave sublime subtle superb
+        supreme swift tactful thrifty tidy timely tranquil trusty upbeat valiant vibrant
         vigilant vigorous vital warm wise witty wondrous worthy zany zealous zesty zippy happy
         cozy cool chilly brainy bubbly chatty dreamy feisty gutsy handy jaunty jazzy lofty
-        loving nifty peppy quirky sassy tough trendy unique youthful bouncy chirpy comfy dandy
+        loving nifty peppy quirky sassy tough trendy youthful bouncy chirpy comfy dandy
         dainty snazzy spiffy swanky groovy funky cheeky
         velvet velvety silken silky satin woolen wooden glassy feathery fluffy fuzzy downy
         woven braided gilded jeweled oaken linen quilted tufted rippled frosted glazed
-        burnished brushed forged carved etched molten sculpted tiled spiral curly wavy round
-        square oval angular coiled layered patterned striped spotted dappled speckled freckled
+        burnished brushed forged carved etched molten sculpted tiled spiral curly wavy
+        angular coiled layered patterned striped spotted dappled speckled freckled
         plaid tartan paisley crystal marbled beaded knitted corded ribbed fringed ruffled
         scalloped fluted latticed inlaid enameled lacquered varnished ceramic terracotta
         leathery suede tweed denim cashmere flannel chenille muslin damask
@@ -79,29 +80,29 @@ class ServerName
         speedy flying soaring gliding rolling racing drifting floating roaming wandering
         leaping dancing spinning turbo swirling twirling bounding skipping sailing cruising
         diving climbing rising prancing galloping hovering zooming orbiting
-        early timeless eternal evergreen ancient classic vintage retro new seasonal perennial
+        timeless eternal evergreen ancient classic vintage retro seasonal perennial
         tangy minty sweet savory spiced honeyed sugary fragrant aromatic peppery smoky toasty
         crunchy crispy citrus herbal
         secret hidden arcane quantum atomic electric magnetic kinetic digital analog binary
-        primal central urban rural civic nautical naval aerial airy steep blazing
-        abundant active adept alive amazing ambient apt assured athletic august awake aware
-        blissful blithe blooming blossoming bountiful bronzed busy candied capital carefree
-        caring charming cherished chief clean coherent colorful comic compact composed
-        confident content courteous crafted creative cultured delicate delightful deluxe
-        dependable dignified distant driven dulcet dutiful durable eclectic edgy efficient
-        elastic elemental elfin elite enchanted enduring engaging enormous equal ethereal
-        excellent fabled fabulous fantastic fast firm first fit flawless fluid foremost formal
+        primal urban rural civic nautical naval aerial airy blazing
+        abundant active adept alive amazing ambient assured athletic august awake aware
+        blissful blithe blooming blossoming bountiful bronzed candied carefree
+        caring charming cherished coherent colorful comic compact composed
+        confident courteous crafted creative cultured delicate delightful
+        dependable dignified dulcet dutiful durable eclectic edgy efficient
+        elastic elemental elfin enchanted enduring engaging enormous ethereal
+        excellent fabled fabulous fantastic fast flawless fluid
         fortunate fruitful gigantic glamorous glorious gorgeous graceful guiding handsome
-        harmonious healthy idyllic imperial inventive knowing laughing legendary level light
-        likable limitless liquid living lovely main marvelous maximal measured mobile moving
-        mystical nocturnal notable optimal opulent orderly organic original outgoing pacific
-        palatial paramount perfect placid playful pleasant plentiful plush popular positive
-        powerful practical precious premium pristine prized profound prolific prominent prompt
-        pure quaint rare rational refined relaxed renewed restful roaring rousing safe salient
-        scenic secure select simple skilled skillful smiling soft soothing special spotless
-        stalwart steadfast still striking stunning stylish talented tasteful terrific thankful
-        thorough thriving tireless treasured trim trusted ultimate unbroken united upright
-        uplifting useful utmost valued versatile welcome whimsical wholesome wild willing
+        harmonious healthy idyllic imperial inventive laughing legendary
+        likable limitless liquid lovely marvelous mobile
+        mystical nocturnal notable opulent orderly organic outgoing pacific
+        palatial paramount perfect placid playful pleasant plentiful plush
+        powerful precious pristine prized profound prolific prominent
+        pure quaint rare refined relaxed renewed restful roaring rousing salient
+        scenic skilled skillful smiling soothing spotless
+        stalwart steadfast striking stunning stylish talented tasteful terrific thankful
+        thorough thriving tireless treasured trusted upright
+        uplifting valued versatile whimsical wholesome wild
         winning winsome wonderful worldly zen
         WORDS;
 
@@ -187,7 +188,7 @@ class ServerName
         betelgeuse aldebaran procyon spica castor pollux mira titan europa callisto ganymede
         triton oberon umbriel charon ceres vesta juno pallas eris mercury venus mars jupiter
         saturn neptune pluto luna terra
-        agate amethyst aquamarine beryl citrine diamond emerald garnet jasper lapis malachite
+        agate amethyst aquamarine beryl citrine garnet jasper lapis malachite
         moonstone obsidian onyx opal peridot quartz ruby sapphire spinel sunstone tanzanite
         topaz tourmaline zircon jadeite basalt granite marble slate flint pumice shale mica
         geode cinnabar feldspar gypsum chalk iron nickel zinc graphite carbon silicon argon
@@ -245,7 +246,12 @@ class ServerName
      */
     public static function generate(?callable $isTaken = null): string
     {
-        $isTaken ??= fn (string $name): bool => DB::table('tblhosting')->where('domain', $name)->exists();
+        // Terminated services no longer have a VM, so their names go back into the pool;
+        // with about 2,000 words that keeps suffixes rare as the customer base grows.
+        $isTaken ??= fn (string $name): bool => DB::table('tblhosting')
+            ->where('domain', $name)
+            ->where('domainstatus', '!=', 'Terminated')
+            ->exists();
 
         try {
             for ($i = 0; $i < self::TRIES; $i++) {
@@ -263,13 +269,12 @@ class ServerName
         }
     }
 
-    /** One random adjective-noun pair, unchecked. */
+    /** One random word from either list, unchecked. */
     public static function random(): string
     {
-        $adjectives = self::words(self::ADJECTIVES);
-        $nouns = self::words(self::NOUNS);
+        $words = [...self::words(self::ADJECTIVES), ...self::words(self::NOUNS)];
 
-        return $adjectives[random_int(0, count($adjectives) - 1)] . '-' . $nouns[random_int(0, count($nouns) - 1)];
+        return $words[random_int(0, count($words) - 1)];
     }
 
     /** @return list<string> */

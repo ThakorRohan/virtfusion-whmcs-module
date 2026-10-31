@@ -30,9 +30,11 @@ foreach (['adjective' => $adjectives, 'noun' => $nouns] as $kind => $list) {
 $both = array_intersect($adjectives, $nouns);
 check($both === [], 'words in both lists: ' . implode(' ', $both));
 check(count($adjectives) >= 500 && count($nouns) >= 1200, 'word lists shrank');
+$plans = array_intersect([...$adjectives, ...$nouns], ['bronze', 'silver', 'gold', 'golden', 'diamond', 'emerald', 'platinum', 'byos']);
+check($plans === [], 'plan names in the lists: ' . implode(' ', $plans));
 
 for ($i = 0; $i < 1000; $i++) {
-    check(preg_match('/^[a-z]{3,10}-[a-z]{3,10}$/', ServerName::random()) === 1, 'random() format');
+    check(preg_match('/^[a-z]{3,10}$/', ServerName::random()) === 1, 'random() format');
 }
 
 // Taken names are skipped: the first three draws are taken, the fourth comes back.
@@ -45,6 +47,6 @@ $name = ServerName::generate(function (string $n) use (&$drawn): bool {
 check(count($drawn) === 4 && $name === $drawn[3], 'generate() returns the first free draw');
 
 // Nothing free at all still yields a name.
-check(preg_match('/^[a-z]+-[a-z]+-[0-9a-f]{4}$/', ServerName::generate(fn (): bool => true)) === 1, 'hex-suffix fallback');
+check(preg_match('/^[a-z]{3,10}-[0-9a-f]{4}$/', ServerName::generate(fn (): bool => true)) === 1, 'hex-suffix fallback');
 
-printf("ok: %d adjectives x %d nouns = %s names\n", count($adjectives), count($nouns), number_format(count($adjectives) * count($nouns)));
+printf("ok: %d adjectives + %d nouns = %d names\n", count($adjectives), count($nouns), count($adjectives) + count($nouns));
